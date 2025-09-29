@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import useAuth from '../hooks/useAuth';
-import { Calendar, MapPin, Info } from 'lucide-react';
+import { Calendar, MapPin, Info, Users } from 'lucide-react';
+import socket from '../socket/socket';
 
 const EventDetailPage = () => {
   const { id } = useParams();
@@ -11,6 +12,8 @@ const EventDetailPage = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [registration, setRegistration] = useState(null);
+  const [currentViewers, setCurrentViewers] = useState(0);
+  const heartbeatIntervalRef = useRef(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -33,6 +36,53 @@ const EventDetailPage = () => {
     };
     fetchEventAndRegistration();
   }, [id, user]);
+
+  // Socket.IO event handling
+  useEffect(() => {
+    if (!event || !user) return;
+
+    console.log('Connecting to socket for event:', id);
+
+    // Ensure socket is connected
+    if (!socket.connected) {
+      console.log('Socket not connected, connecting...');
+      socket.connect();
+    }
+
+    // Connect to socket and join event room
+    socket.emit('joinEvent', {
+      eventId: id,
+      userId: user._id,
+      userRole: user.role
+    });
+
+    // Listen for viewer count updates
+    const handleViewerUpdate = (data) => {
+      console.log('Received viewer update:', data);
+      if (data.eventId === id) {
+        setCurrentViewers(data.currentViewers);
+      }
+    };
+
+    socket.on('viewerUpdate', handleViewerUpdate);
+
+    // Setup heartbeat interval
+    heartbeatIntervalRef.current = setInterval(() => {
+      if (socket.connected) {
+        socket.emit('heartbeat');
+      }
+    }, 15000); // Send heartbeat every 15 seconds
+
+    // Cleanup function
+    return () => {
+      console.log('Cleaning up socket connection for event:', id);
+      socket.emit('leaveEvent');
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+      socket.off('viewerUpdate', handleViewerUpdate);
+    };
+  }, [id, user, event]);
 
   const handleRegister = async () => {
     if (!user) {
@@ -120,6 +170,11 @@ const EventDetailPage = () => {
         <div className="flex items-center space-x-2">
           <Info className="w-5 h-5 text-blue-500" />
           <span>Organizer: {event.organizer.name}</span>
+        </div>
+        
+        <div className="flex items-center space-x-2 bg-blue-50 p-3 rounded-lg">
+          <Users className="w-5 h-5 text-blue-500" />
+          <span className="text-blue-700 font-medium">{currentViewers} {currentViewers === 1 ? 'student is' : 'students are'} currently viewing</span>
         </div>
         
         <p className="text-gray-600 mt-4">{event.description}</p>

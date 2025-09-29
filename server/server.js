@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db.js');
+const setupSocketHandlers = require('./socket/socketHandler.js');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes.js');
@@ -38,6 +39,9 @@ const io = new Server(server, {
     credentials: true
   },
 });
+
+// Setup Socket.IO handlers
+setupSocketHandlers(io);
 
 // Middleware to attach io instance to the request object
 app.use((req, res, next) => {
