@@ -43,13 +43,13 @@ const EventDetailPage = () => {
 
     console.log('Connecting to socket for event:', id);
 
-    // Ensure socket is connected
+    
     if (!socket.connected) {
       console.log('Socket not connected, connecting...');
       socket.connect();
     }
 
-    // Connect to socket and join event room
+    
     socket.emit('joinEvent', {
       eventId: id,
       userId: user._id,

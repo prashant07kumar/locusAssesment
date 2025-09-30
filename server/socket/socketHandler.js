@@ -1,7 +1,6 @@
 const EventViewer = require('../models/EventViewer');
 const mongoose = require('mongoose');
 
-// Utility function to get current viewer count
 async function getCurrentViewerCount(eventId) {
   try {
     const cutoffTime = new Date(Date.now() - 30000); // 30 seconds ago
@@ -11,7 +10,6 @@ async function getCurrentViewerCount(eventId) {
     });
     console.log(`Current viewer count for event ${eventId}: ${count} (cutoff time: ${cutoffTime.toISOString()})`);
     
-    // Log active viewers for debugging
     const activeViewers = await EventViewer.find({
       eventId,
       lastActive: { $gte: cutoffTime }
@@ -29,7 +27,6 @@ async function getCurrentViewerCount(eventId) {
   }
 }
 
-// Utility function to broadcast viewer count
 async function broadcastViewerCount(io, eventId) {
   const count = await getCurrentViewerCount(eventId);
   io.to(`event:${eventId}`).emit('viewerUpdate', {
@@ -38,7 +35,6 @@ async function broadcastViewerCount(io, eventId) {
   });
 }
 
-// Setup socket handlers
 function setupSocketHandlers(io) {
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
@@ -47,7 +43,6 @@ function setupSocketHandlers(io) {
     let currentUserId = null;
     let viewerUpdateInterval = null;
 
-    // Handle joining event
     socket.on('joinEvent', async ({ eventId, userId, userRole }) => {
       console.log(`Join event request - EventID: ${eventId}, UserID: ${userId}, Role: ${userRole}`);
       
@@ -57,22 +52,18 @@ function setupSocketHandlers(io) {
       }
 
       try {
-        // Leave previous event if any
         if (currentEventId) {
           console.log(`Leaving previous event: ${currentEventId}`);
           await handleLeaveEvent();
         }
 
-        // Only track student viewers
         if (userRole === 'student') {
           console.log(`Student ${userId} joining event ${eventId}`);
-          
-          // Join socket room
+  
           socket.join(`event:${eventId}`);
           currentEventId = eventId;
           currentUserId = userId;
 
-          // Create or update viewer record
           const viewer = await EventViewer.findOneAndUpdate(
             { eventId, userId },
             { 
@@ -83,17 +74,14 @@ function setupSocketHandlers(io) {
           );
           console.log(`Viewer record updated: ${viewer._id}`);
 
-          // Clear existing interval if any
           if (viewerUpdateInterval) {
             clearInterval(viewerUpdateInterval);
           }
 
-          // Start periodic updates of viewer count
           viewerUpdateInterval = setInterval(async () => {
             await broadcastViewerCount(io, eventId);
-          }, 5000); // Update every 5 seconds
+          }, 5000); 
 
-          // Broadcast initial viewer count
           const currentCount = await getCurrentViewerCount(eventId);
           console.log(`Broadcasting initial viewer count for event ${eventId}: ${currentCount}`);
           await broadcastViewerCount(io, eventId);
@@ -105,7 +93,6 @@ function setupSocketHandlers(io) {
       }
     });
 
-    // Handle heartbeat to keep viewer active
     socket.on('heartbeat', async () => {
       if (currentEventId && currentUserId) {
         try {
@@ -119,26 +106,21 @@ function setupSocketHandlers(io) {
       }
     });
 
-    // Handle leaving event
     async function handleLeaveEvent() {
       if (currentEventId && currentUserId) {
         try {
-          // Remove viewer record
           await EventViewer.deleteOne({
             eventId: currentEventId,
             userId: currentUserId
           });
 
-          // Leave socket room
           socket.leave(`event:${currentEventId}`);
 
-          // Clear update interval
           if (viewerUpdateInterval) {
             clearInterval(viewerUpdateInterval);
             viewerUpdateInterval = null;
           }
 
-          // Broadcast updated count
           await broadcastViewerCount(io, currentEventId);
 
           currentEventId = null;
@@ -149,10 +131,8 @@ function setupSocketHandlers(io) {
       }
     }
 
-    // Handle explicit leave event
     socket.on('leaveEvent', handleLeaveEvent);
 
-    // Handle disconnection
     socket.on('disconnect', handleLeaveEvent);
   });
 }

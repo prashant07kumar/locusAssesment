@@ -1,15 +1,12 @@
 const User = require('../models/User.js');
 const jwt = require('jsonwebtoken');
 
-// Helper function to generate JWT
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 };
 
-// @desc    Register a new user
-// @route   POST /api/auth/register
 const registerUser = async (req, res) => {
   const { name, email, password, role } = req.body;
   try {
@@ -34,8 +31,7 @@ const registerUser = async (req, res) => {
   }
 };
 
-// @desc    Auth user & get token
-// @route   POST /api/auth/login
+
 const loginUser = async (req, res) => {
   const { email, password, role } = req.body;
   try {
@@ -45,7 +41,6 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Check if the user has the required role
     if (role && user.role !== role) {
       return res.status(403).json({ 
         message: `Access denied. This account is not registered as a ${role}.`

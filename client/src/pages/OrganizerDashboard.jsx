@@ -9,7 +9,7 @@ const OrganizerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   
-  // State for new event form
+  
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
@@ -22,7 +22,7 @@ const OrganizerDashboard = () => {
     const fetchMyEvents = async () => {
       try {
         const { data } = await api.get('/api/events');
-        // Filter events where the current user is the organizer and organizer exists
+        
         setMyEvents(data.filter(event => 
           event.organizer && event.organizer._id === user.id
         ));
@@ -75,7 +75,6 @@ const OrganizerDashboard = () => {
   const handleStatusUpdate = async (regId, status) => {
     try {
       await api.put(`/api/registrations/${regId}`, { status });
-      // Refresh registrations for the selected event
       const { data } = await api.get(`/api/registrations/event/${selectedEvent._id}`);
       setRegistrations(data);
     } catch (error) {

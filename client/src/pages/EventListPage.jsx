@@ -37,7 +37,7 @@ const EventListPage = () => {
 
     socket.on('attendeeUpdate', handleAttendeeUpdate);
 
-    // Cleanup on component unmount
+    
     return () => {
       socket.off('attendeeUpdate', handleAttendeeUpdate);
       socket.disconnect();

@@ -18,7 +18,6 @@ const registrationSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-// Ensure a student can register for an event only once
 registrationSchema.index({ event: 1, student: 1 }, { unique: true });
 
 const Registration = mongoose.model('Registration', registrationSchema);

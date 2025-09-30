@@ -64,15 +64,13 @@ const updateEvent = async (req, res) => {
   }
 };
 
-// @desc    Delete an event
-// @route   DELETE /api/events/:id
+
 const deleteEvent = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    // Check if the logged-in user is the organizer
     if (event.organizer.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'User not authorized to delete this event' });
     }

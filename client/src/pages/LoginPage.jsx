@@ -9,7 +9,7 @@ const LoginPage = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [role, setRole] = useState('student'); // Default to student login
+  const [role, setRole] = useState('student'); 
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
