@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
       if (decodedUser.exp * 1000 < Date.now()) {
         localStorage.removeItem('token');
       } else {
-        setUser({ ...decodedUser, role: decodedUser.role || 'student' });
+        setUser({ ...decodedUser, _id: decodedUser.id, role: decodedUser.role || 'student' });
       }
     }
     setLoading(false);
@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
     }
     localStorage.setItem('token', data.token);
     const decodedUser = jwtDecode(data.token);
-    setUser({ ...decodedUser, name: data.name, role: data.role });
+    setUser({ ...decodedUser, _id: decodedUser.id, name: data.name, role: data.role });
     return data;
   };
 
@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
     const { data } = await api.post('/api/auth/register', { name, email, password, role });
     localStorage.setItem('token', data.token);
     const decodedUser = jwtDecode(data.token);
-    setUser({ ...decodedUser, name: data.name, role: data.role });
+    setUser({ ...decodedUser, _id: decodedUser.id, name: data.name, role: data.role });
     return data;
   };
 

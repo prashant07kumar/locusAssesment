@@ -1,72 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, MapPin, Users, Eye } from 'lucide-react';
+import { Calendar, MapPin, Users } from 'lucide-react';
 import socket from '../socket/socket';
 
-const EventCard = ({ event }) => {
-  const [currentViewers, setCurrentViewers] = useState(0);
+const EventCard = ({ event, viewerCount: propViewerCount }) => {
+  const [currentViewers, setCurrentViewers] = useState(propViewerCount || 0);
   const [socketConnected, setSocketConnected] = useState(socket.connected);
 
   useEffect(() => {
+    if (typeof propViewerCount === 'number') {
+      setCurrentViewers(propViewerCount);
+    }
+  }, [propViewerCount]);
+
+  useEffect(() => {
+    if (!event?._id) return;
+
     // Handle socket connection changes
     const onConnect = () => {
-      console.log('Socket connected in EventCard');
+      // console.log('EventCard: Socket connected');
       setSocketConnected(true);
-      // Re-request viewer count when reconnected
       socket.emit('requestEventViewers', { eventId: event._id });
     };
 
     const onDisconnect = () => {
-      console.log('Socket disconnected in EventCard');
+      console.log('EventCard: Socket disconnected');
       setSocketConnected(false);
     };
 
-    // Listen for connection events
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-
-    // Request initial viewer count
-    if (socketConnected) {
-      console.log('Requesting initial viewer count for event:', event._id);
-      socket.emit('requestEventViewers', { eventId: event._id });
-    }
-
     // Listen for viewer updates
     const handleViewerUpdate = (data) => {
-      console.log('Received viewer update:', data);
       if (data.eventId === event._id) {
-        console.log(`Updating viewer count for ${event.title} to:`, data.currentViewers);
-        setCurrentViewers(data.currentViewers);
+        console.log(`EventCard: Updating viewer count for ${event.title} to:`, data.currentViewers);
+        setCurrentViewers(data.currentViewers || 0);
       }
     };
 
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
     socket.on('viewerUpdate', handleViewerUpdate);
 
-    // Set up periodic refresh
-    const refreshInterval = setInterval(() => {
-      if (socketConnected) {
-        console.log('Requesting periodic viewer count update for:', event._id);
-        socket.emit('requestEventViewers', { eventId: event._id });
-      }
-    }, 10000); // Refresh every 10 seconds
+    if (socket.connected) {
+      console.log('EventCard: Requesting initial viewer count for event:', event._id);
+      socket.emit('requestEventViewers', { eventId: event._id });
+    }
 
     // Cleanup listeners when component unmounts
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('viewerUpdate', handleViewerUpdate);
-      clearInterval(refreshInterval);
     };
-  }, [event._id, event.title, socketConnected]);
+  }, [event?._id, event?.title]);
+
+  if (!event) return null;
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+    <div className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-200">
       <div className="p-6">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="text-xl font-bold text-gray-800">{event.title}</h3>
-          <div className="flex items-center bg-blue-50 px-2 py-1 rounded-full">
-            <Eye className="w-4 h-4 mr-1 text-blue-500" />
-            <span className="text-sm text-blue-600 font-medium">{currentViewers}</span>
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="text-xl font-bold text-gray-900 line-clamp-2">{event.title}</h3>
+          <div className={`flex items-center px-2 py-1 rounded-full text-sm font-medium ${
+            socketConnected 
+              ? 'text-green-600 bg-green-50' 
+              : 'text-gray-500 bg-gray-100'
+          }`}>
+            <div className={`w-2 h-2 rounded-full mr-2 ${
+              socketConnected 
+                ? 'bg-green-500 animate-pulse' 
+                : 'bg-gray-400'
+            }`}></div>
+            {currentViewers} viewing{!socketConnected && ' (offline)'}
           </div>
         </div>
         <div className="space-y-3 text-gray-600 text-sm">
@@ -82,7 +86,7 @@ const EventCard = ({ event }) => {
           </p>
           <p className="flex items-center font-semibold">
             <Users className="w-4 h-4 mr-2 text-indigo-500" />
-            <span className="text-lg text-indigo-600">{event.attendeeCount}</span>
+            <span className="text-lg text-indigo-600">{event.attendeeCount || 0}</span>
             <span className="ml-1">Approved Attendees</span>
           </p>
         </div>

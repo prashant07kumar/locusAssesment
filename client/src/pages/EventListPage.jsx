@@ -7,12 +7,15 @@ const EventListPage = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [viewerCounts, setViewerCounts] = useState({});
 
-  
   const fetchEvents = async () => {
     try {
       const { data } = await api.get('/api/events');
       setEvents(data);
+      data.forEach(event => {
+        socket.emit('requestEventViewers', { eventId: event._id });
+      });
     } catch (err) {
       setError('Could not fetch events.');
     } finally {
@@ -21,8 +24,10 @@ const EventListPage = () => {
   };
 
   useEffect(() => {
-    
-    socket.connect();
+    // Ensure socket is connected
+    if (!socket.connected) {
+      socket.connect();
+    }
 
     fetchEvents();
 
@@ -36,20 +41,28 @@ const EventListPage = () => {
       );
     };
 
-  
     const handleRegistrationUpdate = () => {
       console.log('Registration update received, refetching events.');
       fetchEvents();
     };
 
+    const handleViewerUpdate = (data) => {
+      setViewerCounts(prev => ({
+        ...prev,
+        [data.eventId]: data.currentViewers
+      }));
+    };
+
+    // Socket event listeners
     socket.on('attendeeUpdate', handleAttendeeUpdate);
-    socket.on('registrationUpdate', handleRegistrationUpdate); 
+    socket.on('registrationUpdate', handleRegistrationUpdate);
+    socket.on('viewerUpdate', handleViewerUpdate); 
 
     
     return () => {
       socket.off('attendeeUpdate', handleAttendeeUpdate);
       socket.off('registrationUpdate', handleRegistrationUpdate);
-      socket.disconnect();
+      socket.off('viewerUpdate', handleViewerUpdate);
     };
   }, []);
 
@@ -61,7 +74,11 @@ const EventListPage = () => {
       <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center">Upcoming Campus Events</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {events.map((event) => (
-          <EventCard key={event._id} event={event} />
+          <EventCard 
+            key={event._id} 
+            event={event} 
+            viewerCount={viewerCounts[event._id]}
+          />
         ))}
       </div>
     </div>

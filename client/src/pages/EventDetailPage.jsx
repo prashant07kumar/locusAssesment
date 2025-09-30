@@ -43,18 +43,23 @@ const EventDetailPage = () => {
 
     console.log('Connecting to socket for event:', id);
 
-    
-    if (!socket.connected) {
+    const handleConnection = () => {
+      console.log('Socket connected, joining event:', id);
+      socket.emit('joinEvent', {
+        eventId: id,
+        userId: user.id,
+        userRole: user.role
+      });
+      socket.emit('requestEventViewers', { eventId: id });
+    };
+
+    if (socket.connected) {
+      handleConnection();
+    } else {
       console.log('Socket not connected, connecting...');
       socket.connect();
+      socket.once('connect', handleConnection);
     }
-
-    
-    socket.emit('joinEvent', {
-      eventId: id,
-      userId: user._id,
-      userRole: user.role
-    });
 
     // Listen for viewer count updates
     const handleViewerUpdate = (data) => {
@@ -81,6 +86,7 @@ const EventDetailPage = () => {
         clearInterval(heartbeatIntervalRef.current);
       }
       socket.off('viewerUpdate', handleViewerUpdate);
+      socket.off('connect', handleConnection);
     };
   }, [id, user, event]);
 

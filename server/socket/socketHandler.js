@@ -3,66 +3,63 @@ const mongoose = require('mongoose');
 
 async function getCurrentViewerCount(eventId) {
   try {
-    // ✨ --- THIS IS THE CORRECTED LINE --- ✨
-    // This ensures the date is calculated based on the server's current time.
-    const cutoffTime = new Date(new Date().getTime() - 30000); // 30 seconds ago
+    // Validate eventId
+    if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+      console.log('Invalid eventId provided to getCurrentViewerCount:', eventId);
+      return 0;
+    }
+    const eventObjectId = new mongoose.Types.ObjectId(eventId);
+    
+    // Use server's current time with 30-second buffer
+    const cutoffTime = new Date(Date.now() - 30000); // 30 seconds ago
     
     const count = await EventViewer.countDocuments({ 
-      eventId,
+      eventId: eventObjectId,
       lastActive: { $gte: cutoffTime }
     });
-    console.log(`Current viewer count for event ${eventId}: ${count} (cutoff time: ${cutoffTime.toISOString()})`);
     
-    const activeViewers = await EventViewer.find({
-      eventId,
-      lastActive: { $gte: cutoffTime }
-    });
-    console.log('Active viewers:', activeViewers.map(v => ({
-      userId: v.userId,
-      lastActive: v.lastActive,
-      socketId: v.socketId
-    })));
-    
-    return count;
+    return Math.max(0, count); // Ensure non-negative
   } catch (error) {
-    console.error('Error getting viewer count:', error);
     return 0;
   }
 }
 
 async function broadcastViewerCount(io, eventId) {
-  const count = await getCurrentViewerCount(eventId);
-  console.log(`Broadcasting viewer count for event ${eventId}: ${count}`);
-  // Broadcast to all clients, not just those in the room
-  io.emit('viewerUpdate', {
-    eventId,
-    currentViewers: count
-  });
+  try {
+    const count = await getCurrentViewerCount(eventId);
+    io.emit('viewerUpdate', {
+      eventId: eventId.toString(), // Ensure string format for client
+      currentViewers: count
+    });
+    
+    return count;
+  } catch (error) {
+    console.error('❌ Error broadcasting viewer count:', error);
+    return 0;
+  }
 }
 
 function setupSocketHandlers(io) {
   io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
 
     let currentEventId = null;
     let currentUserId = null;
     let viewerUpdateInterval = null;
+    socket.on('ping', () => {
+      socket.emit('pong');
+    });
 
-    // Handle requests for current viewer count
     socket.on('requestEventViewers', async ({ eventId }) => {
       if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
-        console.log('Invalid requestEventViewers request - missing or invalid eventId');
         return;
       }
-      console.log(`Received request for viewer count for event: ${eventId}`);
+      console.log(`📊 Received request for viewer count for event: ${eventId}`);
       await broadcastViewerCount(io, eventId);
     });
 
     socket.on('joinEvent', async ({ eventId, userId, userRole }) => {
-      console.log(`Join event request - EventID: ${eventId}, UserID: ${userId}, Role: ${userRole}`);
       
-      if (!eventId || !userId || !mongoose.Types.ObjectId.isValid(eventId)) {
-        console.log('Invalid join event request - missing or invalid data');
+      if (!eventId || !userId || !mongoose.Types.ObjectId.isValid(eventId) || !mongoose.Types.ObjectId.isValid(userId)) {
         return;
       }
 
@@ -79,8 +76,11 @@ function setupSocketHandlers(io) {
           currentEventId = eventId;
           currentUserId = userId;
 
+          const eventObjectId = new mongoose.Types.ObjectId(eventId);
+          const userObjectId = new mongoose.Types.ObjectId(userId);
+
           const viewer = await EventViewer.findOneAndUpdate(
-            { eventId, userId },
+            { eventId: eventObjectId, userId: userObjectId },
             { 
               socketId: socket.id,
               lastActive: new Date()
@@ -111,8 +111,10 @@ function setupSocketHandlers(io) {
     socket.on('heartbeat', async () => {
       if (currentEventId && currentUserId) {
         try {
+          const eventObjectId = new mongoose.Types.ObjectId(currentEventId);
+          const userObjectId = new mongoose.Types.ObjectId(currentUserId);
           await EventViewer.findOneAndUpdate(
-            { eventId: currentEventId, userId: currentUserId },
+            { eventId: eventObjectId, userId: userObjectId },
             { lastActive: new Date() }
           );
         } catch (error) {
@@ -124,9 +126,12 @@ function setupSocketHandlers(io) {
     async function handleLeaveEvent() {
       if (currentEventId && currentUserId) {
         try {
+          const eventObjectId = new mongoose.Types.ObjectId(currentEventId);
+          const userObjectId = new mongoose.Types.ObjectId(currentUserId);
+          
           await EventViewer.deleteOne({
-            eventId: currentEventId,
-            userId: currentUserId
+            eventId: eventObjectId,
+            userId: userObjectId
           });
 
           socket.leave(`event:${currentEventId}`);
