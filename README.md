@@ -1,6 +1,6 @@
 # Campus Event Platform
 
-A real-time event management platform for campus events with live attendance tracking and interactive features.
+A real time event management platform for campus events with live attendance tracking and interactive features.
 
 ## Features
 
@@ -145,4 +145,4 @@ npm run dev
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License, see the [LICENSE](LICENSE) file for details.
