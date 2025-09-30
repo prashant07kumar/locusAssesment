@@ -1,6 +1,6 @@
 # Campus Event Platform
 
-A real-time event management platform for campus events with live attendance tracking and interactive features.
+A real time event management platform for campus events with live attendance tracking and interactive features.
 
 ## Features
 
