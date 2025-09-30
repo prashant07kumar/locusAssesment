@@ -29,7 +29,9 @@ async function getCurrentViewerCount(eventId) {
 
 async function broadcastViewerCount(io, eventId) {
   const count = await getCurrentViewerCount(eventId);
-  io.to(`event:${eventId}`).emit('viewerUpdate', {
+  console.log(`Broadcasting viewer count for event ${eventId}: ${count}`);
+  // Broadcast to all clients, not just those in the room
+  io.emit('viewerUpdate', {
     eventId,
     currentViewers: count
   });
@@ -42,6 +44,16 @@ function setupSocketHandlers(io) {
     let currentEventId = null;
     let currentUserId = null;
     let viewerUpdateInterval = null;
+
+    // Handle requests for current viewer count
+    socket.on('requestEventViewers', async ({ eventId }) => {
+      if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+        console.log('Invalid requestEventViewers request - missing or invalid eventId');
+        return;
+      }
+      console.log(`Received request for viewer count for event: ${eventId}`);
+      await broadcastViewerCount(io, eventId);
+    });
 
     socket.on('joinEvent', async ({ eventId, userId, userRole }) => {
       console.log(`Join event request - EventID: ${eventId}, UserID: ${userId}, Role: ${userRole}`);
